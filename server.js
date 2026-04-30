@@ -1,19 +1,14 @@
-// Cargamos las variables de entorno al inicio
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
-
-// Conexión a la base de datos
 const db = require('./config/db');
 
-// Importar rutas
 const usuariosRoutes = require('./routes/usuarios');
 const reportesRoutes = require('./routes/reportes');
 const camionesRoutes = require('./routes/camiones');
-
 
 // ========================
 // Middlewares
@@ -22,15 +17,16 @@ const camionesRoutes = require('./routes/camiones');
 app.use(cors());
 app.use(express.json());
 
+// Servir fotos subidas como archivos estáticos
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ========================
 // Ruta de prueba
 // ========================
 
 app.get('/', (req, res) => {
-    res.json({ mensaje: 'API TrashCol funcionando ✅' });
+    res.json({ mensaje: 'API TrashCol funcionando' });
 });
-
 
 // ========================
 // Rutas
@@ -39,7 +35,6 @@ app.get('/', (req, res) => {
 app.use('/usuarios', usuariosRoutes);
 app.use('/reportes', reportesRoutes);
 app.use('/camiones', camionesRoutes);
-
 
 // ========================
 // Inicio del servidor
@@ -51,11 +46,10 @@ app.listen(PORT, () => {
     console.log(`Servidor escuchando en puerto ${PORT}`);
 });
 
-// Verificar conexión a la base de datos
 db.query('SELECT NOW()', (err, res) => {
     if (err) {
-        console.error('❌ Error conectando a PostgreSQL:', err.message);
+        console.error('Error conectando a PostgreSQL:', err.message);
     } else {
-        console.log('✅ PostgreSQL conectado:', res.rows[0].now);
+        console.log('PostgreSQL conectado:', res.rows[0].now);
     }
 });
