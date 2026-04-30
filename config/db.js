@@ -1,3 +1,6 @@
+// Cargamos las variables de entorno desde el archivo .env
+require('dotenv').config();
+
 // Importamos Pool desde la librería pg
 // Pool permite manejar múltiples conexiones a la base de datos
 const { Pool } = require('pg');
@@ -7,23 +10,13 @@ const { Pool } = require('pg');
 // Configuración de la Base de Datos
 // ================================
 
-// Creamos una nueva conexión a PostgreSQL
+// Creamos una nueva conexión a PostgreSQL usando variables de entorno
 const pool = new Pool({
-
-    // Usuario de PostgreSQL
-    user: 'postgres',
-
-    // Servidor donde se encuentra PostgreSQL
-    host: 'localhost',
-
-    // Nombre de la base de datos creada
-    database: 'trashcol',
-
-    // Contraseña de PostgreSQL
-    password: 'ingTecNM@voly2',
-
-    // Puerto por defecto de PostgreSQL
-    port: 5432
+    user:     process.env.DB_USER,
+    host:     process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port:     process.env.DB_PORT
 });
 
 
