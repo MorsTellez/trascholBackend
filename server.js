@@ -10,6 +10,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const reportesRoutes = require('./routes/reportes');
 const camionesRoutes = require('./routes/camiones');
 const adminRoutes = require('./routes/admin');
+const rutasRoutes = require('./routes/rutas');
 
 // ========================
 // Middlewares
@@ -37,6 +38,7 @@ app.use('/usuarios', usuariosRoutes);
 app.use('/reportes', reportesRoutes);
 app.use('/camiones', camionesRoutes);
 app.use('/admin', adminRoutes);
+app.use('/rutas', rutasRoutes);
 
 // ========================
 // Inicio del servidor
