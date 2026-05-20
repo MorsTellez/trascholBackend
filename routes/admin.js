@@ -174,7 +174,7 @@ router.patch('/usuarios/:id/tipo', async (req, res) => {
         const { id } = req.params;
         const { tipousuario } = req.body;
 
-        const tiposValidos = ['ciudadano', 'administrador'];
+        const tiposValidos = ['ciudadano', 'administrador', 'chofer'];
         if (!tiposValidos.includes(tipousuario)) {
             return res.status(400).json({ mensaje: 'Tipo de usuario no válido.' });
         }
