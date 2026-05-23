@@ -10,6 +10,22 @@ router.get('/', (req, res) => {
 });
 
 // ================================
+// Obtener todos los camiones activos
+// ================================
+
+router.get('/todos', auth, async (req, res) => {
+    try {
+        const camiones = await db.query(
+            `SELECT * FROM camiones WHERE estado = 'activo' ORDER BY idcamion ASC`
+        );
+        res.json(camiones.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ mensaje: 'Error obteniendo camiones.' });
+    }
+});
+
+// ================================
 // Crear Camion
 // ================================
 
