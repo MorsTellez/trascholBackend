@@ -4,6 +4,7 @@ const router = express.Router();
 const db = require('../config/db');
 const auth = require('../middleware/auth');
 const esAdmin = require('../middleware/esAdmin');
+const { descifrar } = require('../utils/cifrado');
 
 // Todas las rutas de este archivo requieren token + ser admin
 router.use(auth, esAdmin);
@@ -15,7 +16,7 @@ router.use(auth, esAdmin);
 // Ver todos los reportes con datos del usuario
 router.get('/reportes', async (req, res) => {
     try {
-        const { estado } = req.query; // Filtro opcional por estado
+        const { estado } = req.query;
 
         let query = `
             SELECT reportes.*, usuarios.nombre AS nombre_usuario
@@ -32,7 +33,14 @@ router.get('/reportes', async (req, res) => {
         query += ` ORDER BY reportes.fecha DESC`;
 
         const reportes = await db.query(query, params);
-        res.json(reportes.rows);
+
+        // Descifrar descripción de cada reporte
+        const reportesDescifrados = reportes.rows.map(r => ({
+            ...r,
+            descripcion: descifrar(r.descripcion)
+        }));
+
+        res.json(reportesDescifrados);
 
     } catch (error) {
         console.error(error);
@@ -60,7 +68,10 @@ router.patch('/reportes/:id/estado', async (req, res) => {
             return res.status(404).json({ mensaje: 'Reporte no encontrado.' });
         }
 
-        res.json(resultado.rows[0]);
+        // Descifrar descripción antes de responder
+        const reporte = resultado.rows[0];
+        reporte.descripcion = descifrar(reporte.descripcion);
+        res.json(reporte);
 
     } catch (error) {
         console.error(error);
@@ -203,9 +214,9 @@ router.get('/estadisticas', async (req, res) => {
         ]);
 
         res.json({
-            totalUsuarios:   parseInt(usuarios.rows[0].count),
+            totalUsuarios: parseInt(usuarios.rows[0].count),
             camionesActivos: parseInt(camiones.rows[0].count),
-            totalReportes:   parseInt(reportes.rows[0].count),
+            totalReportes: parseInt(reportes.rows[0].count),
             reportesPendientes: parseInt(pendientes.rows[0].count)
         });
 

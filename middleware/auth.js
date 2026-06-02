@@ -3,14 +3,14 @@ const jwt = require('jsonwebtoken');
 
 const auth = (req, res, next) => {
     try {
-        // Obtener el token del header en formato "Bearer <token>"
-        const authHeader = req.header('Authorization');
-        if (!authHeader) {
+        
+        // Leer token desde cookie segura (HttpOnly)
+
+        const token = req.cookies?.token;
+
+        if (!token) {
             return res.status(401).json({ mensaje: 'Acceso denegado. Token no proporcionado.' });
         }
-
-        // Extraer el token quitando el prefijo "Bearer "
-        const token = authHeader.replace('Bearer ', '');
 
         // Verificar token usando la clave secreta del .env
         const verified = jwt.verify(token, process.env.JWT_SECRET);
@@ -20,7 +20,7 @@ const auth = (req, res, next) => {
         next();
 
     } catch (error) {
-        res.status(400).json({ mensaje: 'Token no válido.' });
+        res.status(401).json({ mensaje: 'Token no válido.' });
     }
 };
 

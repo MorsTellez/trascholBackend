@@ -5,6 +5,8 @@ const db = require('../config/db');
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
+const { cifrar, descifrar } = require('../utils/cifrado');
+const { generarFirma, verificarFirma } = require('../utils/firma');
 
 // ================================
 // Configuración de multer (fotos)
@@ -23,7 +25,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const tipos = /jpeg|jpg|png|webp/;
         const valido = tipos.test(path.extname(file.originalname).toLowerCase());
@@ -38,7 +40,7 @@ router.get('/', (req, res) => {
 });
 
 // ================================
-// Crear Reporte (con foto opcional)
+// Crear Reporte
 // ================================
 
 router.post('/crear', auth, upload.single('foto'), async (req, res) => {
@@ -51,13 +53,31 @@ router.post('/crear', auth, upload.single('foto'), async (req, res) => {
             return res.status(400).json({ mensaje: 'Descripción, latitud y longitud son requeridos.' });
         }
 
+        // Cifrar descripción antes de guardar
+        const descripcionCifrada = cifrar(descripcion);
+
+        // ========================
+        // Generar firma HMAC con los datos originales
+        // ========================
+        const firma = generarFirma({
+            idUsuario,
+            descripcion,   
+            latitud,
+            longitud,
+            foto
+        });
+
         const nuevoReporte = await db.query(
-            `INSERT INTO reportes (idUsuario, descripcion, foto, latitud, longitud)
-             VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-            [idUsuario, descripcion, foto, latitud, longitud]
+            `INSERT INTO reportes (idUsuario, descripcion, foto, latitud, longitud, firma)
+             VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+            [idUsuario, descripcionCifrada, foto, latitud, longitud, firma]
         );
 
-        res.status(201).json(nuevoReporte.rows[0]);
+        const reporte = nuevoReporte.rows[0];
+        reporte.descripcion = descifrar(reporte.descripcion);
+        reporte.firmaValida = true;
+
+        res.status(201).json(reporte);
 
     } catch (error) {
         console.error(error);
@@ -66,7 +86,7 @@ router.post('/crear', auth, upload.single('foto'), async (req, res) => {
 });
 
 // ================================
-// Mis reportes (del usuario logueado)
+// Mis reportes
 // ================================
 
 router.get('/mis-reportes', auth, async (req, res) => {
@@ -74,13 +94,35 @@ router.get('/mis-reportes', auth, async (req, res) => {
         const idUsuario = req.usuario.id;
 
         const reportes = await db.query(
-            `SELECT * FROM reportes
-             WHERE idUsuario = $1
-             ORDER BY fecha DESC`,
+            `SELECT * FROM reportes WHERE idUsuario = $1 ORDER BY fecha DESC`,
             [idUsuario]
         );
 
-        res.json(reportes.rows);
+        const reportesDescifrados = reportes.rows.map(r => {
+            const descripcionOriginal = descifrar(r.descripcion);
+
+            // ========================
+            // Verificar firma al consultar
+            // ========================
+            const firmaValida = r.firma ? verificarFirma(
+                {
+                    idUsuario: r.idusuario,
+                    descripcion: descripcionOriginal,
+                    latitud: r.latitud,
+                    longitud: r.longitud,
+                    foto: r.foto
+                },
+                r.firma
+            ) : false;
+
+            return {
+                ...r,
+                descripcion: descripcionOriginal,
+                firmaValida
+            };
+        });
+
+        res.json(reportesDescifrados);
 
     } catch (error) {
         console.error(error);
@@ -101,7 +143,28 @@ router.get('/todos', auth, async (req, res) => {
              ORDER BY fecha DESC`
         );
 
-        res.json(reportes.rows);
+        const reportesDescifrados = reportes.rows.map(r => {
+            const descripcionOriginal = descifrar(r.descripcion);
+
+            const firmaValida = r.firma ? verificarFirma(
+                {
+                    idUsuario: r.idusuario,
+                    descripcion: descripcionOriginal,
+                    latitud: r.latitud,
+                    longitud: r.longitud,
+                    foto: r.foto
+                },
+                r.firma
+            ) : false;
+
+            return {
+                ...r,
+                descripcion: descripcionOriginal,
+                firmaValida
+            };
+        });
+
+        res.json(reportesDescifrados);
 
     } catch (error) {
         console.error(error);
@@ -132,7 +195,9 @@ router.patch('/:id/estado', auth, async (req, res) => {
             return res.status(404).json({ mensaje: 'Reporte no encontrado.' });
         }
 
-        res.json(resultado.rows[0]);
+        const reporte = resultado.rows[0];
+        reporte.descripcion = descifrar(reporte.descripcion);
+        res.json(reporte);
 
     } catch (error) {
         console.error(error);

@@ -22,12 +22,10 @@ router.post('/registro', async (req, res) => {
     try {
         const { nombre, correo, password } = req.body;
 
-        // Validación básica de campos
         if (!nombre || !correo || !password) {
             return res.status(400).json({ mensaje: 'Nombre, correo y password son requeridos.' });
         }
 
-        // Verificar si el correo ya está registrado
         const usuarioExistente = await db.query(
             'SELECT * FROM usuarios WHERE correo = $1',
             [correo]
@@ -36,7 +34,7 @@ router.post('/registro', async (req, res) => {
             return res.status(400).json({ mensaje: 'El correo ya está registrado.' });
         }
 
-        // Encriptar contraseña
+        //hasing de la contraseña
         const passwordEncriptado = await bcrypt.hash(password, 10);
 
         const nuevoUsuario = await db.query(
@@ -60,12 +58,10 @@ router.post('/login', async (req, res) => {
     try {
         const { correo, password } = req.body;
 
-        // Validación básica de campos
         if (!correo || !password) {
             return res.status(400).json({ mensaje: 'Correo y password son requeridos.' });
         }
 
-        // Buscar usuario
         const usuario = await db.query(
             'SELECT * FROM usuarios WHERE correo = $1',
             [correo]
@@ -75,25 +71,32 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ mensaje: 'Usuario no encontrado.' });
         }
 
-        // Comparar contraseña
+        //comparar las contraseña
         const validPassword = await bcrypt.compare(password, usuario.rows[0].password);
 
         if (!validPassword) {
             return res.status(400).json({ mensaje: 'Contraseña incorrecta.' });
         }
 
-        // Crear Token usando JWT_SECRET del .env
+        // Crear Token JWT
         const token = jwt.sign(
             { id: usuario.rows[0].idusuario },
             process.env.JWT_SECRET,
             { expiresIn: '8h' }
         );
 
-        // Devolver token y datos del usuario sin la contraseña
+
+        // Cookie segura — HttpOnly, Secure, SameSite=Strict
+        res.cookie('token', token, {
+            httpOnly: true,       // JavaScript no puede leerla
+            secure: process.env.NODE_ENV === 'production', // Solo HTTPS en producción
+            sameSite: 'Strict',   // No se envía desde otros sitios
+            maxAge: 8 * 60 * 60 * 1000 // 8 horas en milisegundos
+        });
+
         const { password: _, ...usuarioSinPassword } = usuario.rows[0];
         res.json({
             mensaje: 'Login exitoso.',
-            token,
             usuario: usuarioSinPassword
         });
 
@@ -101,6 +104,19 @@ router.post('/login', async (req, res) => {
         console.error(error);
         res.status(500).json({ mensaje: 'Error en login.' });
     }
+});
+
+// ================================
+// Logout usuario
+// ================================
+
+router.post('/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'Strict'
+    });
+    res.json({ mensaje: 'Sesión cerrada exitosamente.' });
 });
 
 // ================================
